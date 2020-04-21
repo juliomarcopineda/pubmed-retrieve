@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,7 +10,17 @@ import (
 
 var esearchURLString string = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
 
-// GetPmids ...
+type eSearchResult struct {
+	XMLName xml.Name `xml:"eSearchResult"`
+	Count   int      `xml:"Count"`
+	Pmids   pmids    `xml:"IdList"`
+}
+
+type pmids struct {
+	PmidSlice []int `xml:"Id"`
+}
+
+// GetPmids returns a slice of PMIDs given a PubMed query
 func GetPmids(query string) ([]int, error) {
 	pmidQuery := map[string]string{
 		"db":     "pubmed",
@@ -32,9 +43,11 @@ func GetPmids(query string) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get XML: %v", err)
 	}
-	fmt.Println(xmlString)
 
-	return nil, nil
+	var result eSearchResult
+	xml.Unmarshal([]byte(xmlString), &result)
+
+	return result.Pmids.PmidSlice, nil
 }
 
 // getXML returns the XML body of a given URL string
@@ -52,9 +65,6 @@ func getXML(url string) (string, error) {
 		return "", fmt.Errorf("Read body: %v", err)
 	}
 
-	fmt.Println(string(data))
-
 	response.Body.Close()
-
 	return string(data), nil
 }
