@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	query := "cancer[majr] AND Cell[ta]"
-	pmids, err := search.GetPmids(query)
+	pubmedQuery := "cancer[majr] AND Cell[ta]"
+	pmids, err := search.GetPmids(pubmedQuery)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-var esearchURLString string = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
+const eSearchURLString string = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
 
 type eSearchResult struct {
 	XMLName xml.Name `xml:"eSearchResult"`
@@ -21,25 +21,25 @@ type pmids struct {
 }
 
 // GetPmids returns a slice of PMIDs given a PubMed query
-func GetPmids(query string) ([]int, error) {
+func GetPmids(pubmedQuery string) ([]int, error) {
 	pmidQuery := map[string]string{
 		"db":     "pubmed",
-		"term":   query,
+		"term":   pubmedQuery,
 		"retmax": "100000",
 	}
 
-	esearchURL, err := url.Parse(esearchURLString)
+	eSearchURL, err := url.Parse(eSearchURLString)
 	if err != nil {
 		return nil, fmt.Errorf("URL Parse Error: %v", err)
 	}
 
-	esearchQuery := esearchURL.Query()
+	eSearchQuery := eSearchURL.Query()
 	for key, val := range pmidQuery {
-		esearchQuery.Set(key, val)
+		eSearchQuery.Set(key, val)
 	}
-	esearchURL.RawQuery = esearchQuery.Encode()
+	eSearchURL.RawQuery = eSearchQuery.Encode()
 
-	body, err := getXML(esearchURL.String())
+	body, err := getXML(eSearchURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get XML Body: %v", err)
 	}
@@ -47,7 +47,7 @@ func GetPmids(query string) ([]int, error) {
 	var result eSearchResult
 	err = xml.NewDecoder(body).Decode(&result)
 	if err != nil {
-		return nil, fmt.Errorf("Read body: %v", err)
+		return nil, fmt.Errorf("Failed to read body: %v", err)
 	}
 
 	body.Close()
