@@ -3,11 +3,12 @@ package search
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -51,7 +52,7 @@ type eSearchResult struct {
 func Retrieve(pubmedQuery string) ([]byte, error) {
 	pmids, err := GetPmids(pubmedQuery)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get PMIDs: %v", err)
+		return nil, errors.Wrap(err, "Failed to get PMIDs")
 	}
 
 	eFetchParams := map[string]string{
@@ -62,23 +63,23 @@ func Retrieve(pubmedQuery string) ([]byte, error) {
 
 	eFetchURL, err := setupURL(eFetch, eFetchParams)
 	if err != nil {
-		return nil, fmt.Errorf("URL Parse Error: %v", err)
+		return nil, errors.Wrap(err, "Failed parsing URL")
 	}
 
 	body, err := getXML(eFetchURL)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read body: %v", err)
+		return nil, errors.Wrap(err, "Failed to get XML")
 	}
 
 	var pubmedArticleSet PubmedArticleSet
 	err = xml.NewDecoder(body).Decode(&pubmedArticleSet)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to convert from XML: %v", err)
+		return nil, errors.Wrap(err, "Failed to convert XML to PubmedArticleSet")
 	}
 
 	jsonResult, err := json.Marshal(pubmedArticleSet)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to convert to JSON: %v", err)
+		return nil, errors.Wrap(err, "Failed to convert PubmedArticleSet to JSON")
 	}
 
 	body.Close()
@@ -95,18 +96,18 @@ func GetPmids(pubmedQuery string) ([]string, error) {
 
 	eSearchURL, err := setupURL(eSearch, eSearchParams)
 	if err != nil {
-		return nil, fmt.Errorf("URL Parse Error: %v", err)
+		return nil, errors.Wrap(err, "Failed parsing URL")
 	}
 
 	body, err := getXML(eSearchURL)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get XML Body: %v", err)
+		return nil, errors.Wrap(err, "Failed to get XML")
 	}
 
 	var eSearchResult eSearchResult
 	err = xml.NewDecoder(body).Decode(&eSearchResult)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read body: %v", err)
+		return nil, errors.Wrap(err, "Failed to convert XML to eSearchResult")
 	}
 
 	body.Close()
@@ -118,7 +119,7 @@ func setupURL(urlString string, params map[string]string) (string, error) {
 
 	urlParse, err := url.Parse(urlString)
 	if err != nil {
-		return result, fmt.Errorf("URL Parse Error: %v", err)
+		return result, errors.Wrap(err, "Failed parsing URL")
 	}
 
 	urlQuery := urlParse.Query()
@@ -135,10 +136,10 @@ func setupURL(urlString string, params map[string]string) (string, error) {
 func getXML(url string) (io.ReadCloser, error) {
 	response, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("GET error: %v", err)
+		return nil, errors.Wrap(err, "GET error with"+url)
 	}
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Status error: %v", response.StatusCode)
+		return nil, errors.Wrap(err, "HTTP status code not OK")
 	}
 
 	return response.Body, nil
