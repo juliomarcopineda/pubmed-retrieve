@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -16,28 +17,28 @@ const (
 
 // PubmedArticleSet ...
 type PubmedArticleSet struct {
-	XMLName        xml.Name        `xml:"PubmedArticleSet"`
-	PubmedArticles []pubmedArticle `xml:"PubmedArticle"`
+	XMLName        xml.Name        `xml:"PubmedArticleSet" json:"-"`
+	PubmedArticles []pubmedArticle `xml:"PubmedArticle" json:"pubmedArticles"`
 }
 
 type pubmedArticle struct {
-	Pmid        int      `xml:"MedlineCitation>PMID"`
-	JournalName string   `xml:"MedlineCitation>Article>Journal>Title"`
-	Abstract    string   `xml:"MedlineCitation>Article>Abstract>AbstractText"`
-	PubDate     pubDate  `xml:"MedlineCitation>Article>Journal>JournalIssue>PubDate"`
-	AuthorList  []author `xml:"MedlineCitation>Article>AuthorList>Author"`
+	Pmid       int      `xml:"MedlineCitation>PMID" json:"_id"`
+	Journal    string   `xml:"MedlineCitation>Article>Journal>Title" json:"journal"`
+	Abstract   string   `xml:"MedlineCitation>Article>Abstract>AbstractText" json:"abstract"`
+	PubDate    pubDate  `xml:"MedlineCitation>Article>Journal>JournalIssue>PubDate" json:"pubDate"`
+	AuthorList []author `xml:"MedlineCitation>Article>AuthorList>Author" json:"authors"`
 }
 
 type pubDate struct {
-	Year  int `xml:"Year"`
-	Month int `xml:"Month,omitempty"`
-	Day   int `xml:"Day"`
+	Year  int `xml:"Year" json:"year"`
+	Month int `xml:"Month,omitempty" json:"month,omitempty"`
+	Day   int `xml:"Day,omitempty" json:"day,omitempty"`
 }
 
 type author struct {
-	LastName    string `xml:"LastName"`
-	ForeName    string `xml:"ForeName,omitempty"`
-	Affiliation string `xml:"AffiliationInfo>Affiliation,omitempty"`
+	LastName    string `xml:"LastName" json:"lastName"`
+	ForeName    string `xml:"ForeName,omitempty" json:"foreName"`
+	Affiliation string `xml:"AffiliationInfo>Affiliation,omitempty" json:"affiliation"`
 }
 
 type eSearchResult struct {
@@ -47,10 +48,10 @@ type eSearchResult struct {
 }
 
 // Retrieve TODO comment
-func Retrieve(pubmedQuery string) {
+func Retrieve(pubmedQuery string) ([]byte, error) {
 	pmids, err := GetPmids(pubmedQuery)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("Failed to get PMIDs: %v", err)
 	}
 
 	eFetchParams := map[string]string{
@@ -61,23 +62,27 @@ func Retrieve(pubmedQuery string) {
 
 	eFetchURL, err := setupURL(eFetch, eFetchParams)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("URL Parse Error: %v", err)
 	}
 
 	body, err := getXML(eFetchURL)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("Failed to read body: %v", err)
 	}
 
 	var pubmedArticleSet PubmedArticleSet
 	err = xml.NewDecoder(body).Decode(&pubmedArticleSet)
 	if err != nil {
-		fmt.Println(fmt.Errorf("Failed to read body: %v", err))
-		return
+		return nil, fmt.Errorf("Failed to convert from XML: %v", err)
 	}
 
-	_ = pubmedArticleSet
+	jsonResult, err := json.Marshal(pubmedArticleSet)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to convert to JSON: %v", err)
+	}
+
 	body.Close()
+	return jsonResult, nil
 }
 
 // GetPmids returns a slice of PMIDs given a PubMed query
